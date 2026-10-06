@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trabalho DS - Consumo GraphQL</title>
+  <style>
+    /* Reset básico e tipografia moderna */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f6f9;
+      color: #2c3e50;
+      line-height: 1.6;
+      padding: 30px 20px;
+    }
+
+    /* Container principal centralizado */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* Cabeçalho */
+    header {
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      margin-bottom: 24px;
+      border-left: 6px solid #4f46e5;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      color: #1e293b;
+      margin-bottom: 4px;
+    }
+
+    header p {
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+
+    /* Grupo de Botões */
+    .botoes {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background-color: #4f46e5;
+      color: #ffffff;
+      border: none;
+      padding: 12px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+      flex: 1;
+      min-width: 180px;
+    }
+
+    button:hover {
+      background-color: #4338ca;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(79, 70, 229, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    /* Mensagens de Status (Loading / Erro) */
+    #status {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    #status:not(:empty) {
+      display: block;
+    }
+
+    .loading {
+      background-color: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+      animation: pulse 1.5s infinite;
+    }
+
+    .erro {
+      background-color: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    /* Título da Seção Dinâmica */
+    .secao-titulo {
+      font-size: 1.3rem;
+      color: #1e293b;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    /* Grid de Cards */
+    .grid-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    /* Estilo do Card */
+    .card {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      border: 1px solid #e2e8f0;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .card strong {
+      color: #475569;
+    }
+
+    .card-item {
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+
+    .card-item:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Estilo de Listas Aninhadas dentro do Card */
+    .card ul {
+      list-style: none;
+      margin-top: 8px;
+      padding-left: 0;
+    }
+
+    .card li {
+      background-color: #f8fafc;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      margin-bottom: 4px;
+      border-left: 3px solid #6366f1;
+    }
+
+    .vazio {
+      color: #94a3b8;
+      font-style: italic;
+      font-size: 0.88rem;
+    }
+
+    /* Animações */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Consumo de API GraphQL</h1>
+      <p>Escola Manoel Ignácio • Desenvolvimento de Sistemas (3ª B)</p>
+    </header>
+
+    <div class="botoes">
+      <button onclick="carregarAlunos()">1. Listar Alunos</button>
+      <button onclick="carregarCursos()">2. Listar Cursos</button>
+      <button onclick="carregarProfessores()">3. Listar Professores</button>
+    </div>
+
+    <div id="status"></div>
+    <div id="conteudo"></div>
+  </div>
+
+  <script>
+    const GRAPHQL_ENDPOINT = "https://testing-graphql.onrender.com/graphql";
+
+    const statusDiv = document.getElementById("status");
+    const conteudoDiv = document.getElementById("conteudo");
+
+    async function executarGraphQL(queryDocument) {
+      statusDiv.className = "loading";
+      statusDiv.innerText = "Carregando dados da API...";
+      conteudoDiv.innerHTML = "";
+
+      try {
+        const resposta = await fetch(GRAPHQL_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            query: queryDocument
+          })
+        });
+
+        if (!resposta.ok) {
+          throw new Error(`Erro na requisição HTTP: ${resposta.status}`);
+        }
+
+        const resultado = await resposta.json();
+
+        if (resultado.errors) {
+          console.error("Erros do GraphQL:", resultado.errors);
+          statusDiv.className = "erro";
+          statusDiv.innerText = "Erro no servidor GraphQL.";
+          return null;
+        }
+
+        statusDiv.innerText = "";
+        return resultado.data;
+
+      } catch (erro) {
+        console.error("Erro na comunicação:", erro);
+        statusDiv.className = "erro";
+        statusDiv.innerText = "Falha ao conectar com o servidor.";
+        return null;
+      }
+    }
+
+    // CONSULTA 1 - Alunos
+    async function carregarAlunos() {
+      const query = `
+        query {
+          students {
+            id
+            name
+            email
+            course {
+              name
+            }
+          }
+        }
+      `;
+
+      const data = await executarGraphQL(query);
+
+      if (data && data.students) {
+        let html = `<h2 class="secao-titulo">Lista de Alunos (${data.students.length})</h2>`;
+
+        if (data.students.length === 0) {
+          html += `<p class="vazio">Nenhum aluno cadastrado.</p>`;
+        } else {
+          html += `<div class="grid-cards">`;
+          data.students.forEach(aluno => {
+            const nomeCurso = aluno.course ? aluno.course.name : "Sem curso cadastrado";
+            html += `
+              <div class="card">
+                <div class="card-item"><strong>Nome:</strong> ${aluno.name}</div>
+                <div class="card-item"><strong>E-mail:</strong> ${aluno.email}</div>
+                <div class="card-item"><strong>Curso:</strong> ${nomeCurso}</div>
+              </div>
+            `;
+          });
+          html += `</div>`;
+        }
+
+        conteudoDiv.innerHTML = html;
+      }
+    }
+
+    // CONSULTA 2 - Cursos
+    async function carregarCursos() {
+      const query = `
+        query {
+          courses {
+            id
+            name
+            credits
+            students {
+              id
+              name
+            }
+          }
+        }
+      `;
+
+      const data = await executarGraphQL(query);
+
+      if (data && data.courses) {
+        let html = `<h2 class="secao-titulo">Lista de Cursos (${data.courses.length})</h2>`;
+
+        if (data.courses.length === 0) {
+          html += `<p class="vazio">Nenhum curso cadastrado.</p>`;
+        } else {
+          html += `<div class="grid-cards">`;
+          data.courses.forEach(curso => {
+            let listaAlunos = `<p class="vazio">Nenhum aluno matriculado.</p>`;
+
+            if (curso.students && curso.students.length > 0) {
+              listaAlunos = "<ul>" + curso.students.map(a => `<li>${a.name}</li>`).join("") + "</ul>";
+            }
+
+            html += `
+              <div class="card">
+                <div class="card-item"><strong>Curso:</strong> ${curso.name}</div>
+                <div class="card-item"><strong>Créditos:</strong> ${curso.credits}</div>
+                <div class="card-item">
+                  <strong>Alunos Matriculados:</strong>
+                  ${listaAlunos}
+                </div>
+              </div>
+            `;
+          });
+          html += `</div>`;
+        }
+
+        conteudoDiv.innerHTML = html;
+      }
+    }
+
+    // CONSULTA 3 - Professores
+    async function carregarProfessores() {
+      const query = `
+        query {
+          teachers {
+            id
+            name
+            courses {
+              id
+              name
+            }
+          }
+        }
+      `;
+
+      const data = await executarGraphQL(query);
+
+      if (data && data.teachers) {
+        let html = `<h2 class="secao-titulo">Lista de Professores (${data.teachers.length})</h2>`;
+
+        if (data.teachers.length === 0) {
+          html += `<p class="vazio">Nenhum professor cadastrado.</p>`;
+        } else {
+          html += `<div class="grid-cards">`;
+          data.teachers.forEach(prof => {
+            let listaCursos = `<p class="vazio">Nenhum curso associado.</p>`;
+
+            if (prof.courses && prof.courses.length > 0) {
+              listaCursos = "<ul>" + prof.courses.map(c => `<li>${c.name}</li>`).join("") + "</ul>";
+            }
+
+            html += `
+              <div class="card">
+                <div class="card-item"><strong>Professor:</strong> ${prof.name}</div>
+                <div class="card-item">
+                  <strong>Disciplinas/Cursos:</strong>
+                  ${listaCursos}
+                </div>
+              </div>
+            `;
+          });
+          html += `</div>`;
+        }
+
+        conteudoDiv.innerHTML = html;
+      }
+    }
+  </script>
+
+</body>
+</html>
